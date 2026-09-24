@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import csv
+import os
 
 # ============================================================
 # OVERSAMPLING EXPERIMENT FOR RSVD
@@ -18,6 +20,7 @@ p_values = [0, 5, 10, 20, 30]
 # ------------------------------------------------------------
 # Generate test matrix
 # ------------------------------------------------------------
+
 rng = np.random.default_rng(42)
 A = rng.standard_normal((m, n))
 
@@ -25,15 +28,14 @@ A_norm = np.linalg.norm(A, "fro")
 
 # ------------------------------------------------------------
 # Generate ONE large Omega
-# Then use first ell columns for each p
-# This makes the experiment reproducible and controlled.
 # ------------------------------------------------------------
+
 max_p = max(p_values)
 max_ell = k + max_p
 
 Omega_max = rng.standard_normal((n, max_ell))
 
-# Store results for plotting
+# Store results
 relative_errors = []
 frobenius_errors = []
 orthogonality_errors = []
@@ -42,6 +44,7 @@ ell_values = []
 # ------------------------------------------------------------
 # Experiment
 # ------------------------------------------------------------
+
 print("OVERSAMPLING EXPERIMENT")
 print("-" * 85)
 
@@ -57,47 +60,28 @@ print("-" * 85)
 
 for p in p_values:
 
-    # --------------------------------------------------------
     # Oversampled dimension
-    # ell = k + p
-    # --------------------------------------------------------
     ell = k + p
 
-    # Use first ell columns of the same Omega
+    # Use first ell columns of same Omega
     Omega = Omega_max[:, :ell]
 
-    # --------------------------------------------------------
     # Randomized sketch
-    # Y = A Omega
-    # --------------------------------------------------------
     Y = A @ Omega
 
-    # --------------------------------------------------------
     # QR factorization
-    # Y = QR
-    # --------------------------------------------------------
     Q, R = np.linalg.qr(Y, mode="reduced")
 
-    # --------------------------------------------------------
     # Randomized projection
-    # A_projection = Q Q^T A
-    # --------------------------------------------------------
     A_projection = Q @ (Q.T @ A)
 
-    # --------------------------------------------------------
     # Frobenius error
-    # --------------------------------------------------------
     error = np.linalg.norm(A - A_projection, "fro")
 
-    # --------------------------------------------------------
     # Relative Frobenius error
-    # --------------------------------------------------------
     relative_error = error / A_norm
 
-    # --------------------------------------------------------
     # Check orthogonality of Q
-    # ||Q^T Q - I||
-    # --------------------------------------------------------
     orthogonality_error = np.linalg.norm(
         Q.T @ Q - np.eye(ell),
         "fro"
@@ -120,6 +104,38 @@ for p in p_values:
 
 print("-" * 85)
 
+# ============================================================
+# SAVE NUMERICAL RESULTS TO CSV
+# ============================================================
+
+os.makedirs("results/tables", exist_ok=True)
+
+csv_path = "results/tables/oversampling_results.csv"
+
+with open(csv_path, "w", newline="") as file:
+
+    writer = csv.writer(file)
+
+    # Header
+    writer.writerow([
+        "p",
+        "ell",
+        "frobenius_error",
+        "relative_error",
+        "orthogonality_error"
+    ])
+
+    # Data
+    for i in range(len(p_values)):
+        writer.writerow([
+            p_values[i],
+            ell_values[i],
+            frobenius_errors[i],
+            relative_errors[i],
+            orthogonality_errors[i]
+        ])
+
+print(f"\nResults saved to: {csv_path}")
 
 # ============================================================
 # PLOT: OVERSAMPLING vs RELATIVE ERROR
@@ -137,11 +153,9 @@ plt.plot(
 plt.xlabel("Oversampling parameter p")
 plt.ylabel("Relative Frobenius Error")
 plt.title("Effect of Oversampling on RSVD Error")
-
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
 
-# Save the plot
 plt.savefig(
     "oversampling_relative_error.png",
     dpi=300,
@@ -150,9 +164,8 @@ plt.savefig(
 
 plt.show()
 
-
 # ============================================================
-# OPTIONAL: PLOT ell vs RELATIVE ERROR
+# PLOT: ell vs RELATIVE ERROR
 # ============================================================
 
 plt.figure(figsize=(7, 5))
@@ -167,7 +180,6 @@ plt.plot(
 plt.xlabel(r"Sketch dimension $\ell = k+p$")
 plt.ylabel("Relative Frobenius Error")
 plt.title("Effect of Sketch Dimension on RSVD Error")
-
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
 
